@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Upgrades from './Upgrades';  // Importe o novo componente
 
 const HomePage = () => {
     const [morangos, setMorangos] = useState(0);
     const [upgradeLevel, setUpgradeLevel] = useState(1);
-    const [upgrades, setUpgrades] = useState([
-        { id: 1, name: 'Upgrade 1', cost: 50, multiplier: 2, quantity: 0 },
-        { id: 2, name: 'Upgrade 2', cost: 100, multiplier: 5, quantity: 0 },
-        { id: 3, name: 'Upgrade 3', cost: 200, multiplier: 10, quantity: 0 },
-    ]); // Inicializando os upgrades diretamente no estado
     const [showUpgrades, setShowUpgrades] = useState(false);
     const [username, setUsername] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isHarvesting, setIsHarvesting] = useState(false);
-    const [isBuying, setIsBuying] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -40,12 +35,7 @@ const HomePage = () => {
                 const profileData = await profileRes.json();
 
                 setMorangos(progressData.strawberries);
-                let upgradesData = JSON.parse(progressData.upgrades);
-                setUpgrades(upgradesData);
 
-                // Recalculate total multiplier
-                let totalMultiplier = upgradesData.reduce((sum, upgrade) => sum + upgrade.multiplier * upgrade.quantity, 0);
-                setUpgradeLevel(totalMultiplier || 1);
                 setUsername(profileData.username);
                 setIsLoading(false);
             })
@@ -89,41 +79,6 @@ const HomePage = () => {
         }
     };
 
-    const handleUpgrade = async (upgradeId) => {
-        const token = localStorage.getItem('token');
-        setIsBuying(true);
-
-        try {
-            const response = await fetch('http://localhost:3000/buy', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-access-token': token,
-                },
-                body: JSON.stringify({ id: upgradeId }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(errorData || 'Erro ao comprar upgrade.');
-            }
-
-            const data = await response.json();
-            setMorangos(data.strawberries);
-            let upgradesData = JSON.parse(data.upgrades);
-            setUpgrades(upgradesData);
-
-            // Recalculate total multiplier
-            let totalMultiplier = upgradesData.reduce((sum, upgrade) => sum + upgrade.multiplier * upgrade.quantity, 0);
-            setUpgradeLevel(totalMultiplier || 1);
-            toast.success('Upgrade comprado com sucesso!');
-        } catch (error) {
-            toast.error(error.message || 'Erro ao comprar upgrade.');
-        } finally {
-            setIsBuying(false);
-        }
-    };
-
     const toggleShowUpgrades = () => {
         setShowUpgrades(prevState => !prevState);  // Alterna a visibilidade dos upgrades
     };
@@ -131,6 +86,8 @@ const HomePage = () => {
     if (isLoading) {
         return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
     }
+
+    const token = localStorage.getItem('token'); // Pegue o token para passar para o componente Upgrades
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
@@ -156,26 +113,7 @@ const HomePage = () => {
                 </button>
 
                 {showUpgrades && (
-                    <div className="mt-4">
-                        <h2 className="text-2xl font-bold mb-4">Upgrades Disponíveis</h2>
-                        {upgrades.map((upgrade) => (
-                            <div key={upgrade.id} className="mb-4 p-4 bg-white rounded shadow">
-                                <p className="text-lg font-semibold">{upgrade.name}</p>
-                                <p>Custo: {upgrade.cost} morangos</p>
-                                <p>Quantidade: {upgrade.quantity}</p>
-                                <p>Multiplicador: x{upgrade.multiplier}</p>
-                                <button
-                                    onClick={() => handleUpgrade(upgrade.id)}
-                                    className={`mt-2 px-4 py-2 font-semibold rounded-lg shadow-md ${
-                                        morangos < upgrade.cost ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700 text-white'
-                                    }`}
-                                    disabled={isBuying || morangos < upgrade.cost}
-                                >
-                                    {isBuying ? 'Processando...' : `Comprar ${upgrade.name}`}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                    <Upgrades token={token} strawberries={morangos} setStrawberries={setMorangos} />
                 )}
             </div>
 
