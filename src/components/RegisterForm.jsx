@@ -10,7 +10,7 @@ const RegisterForm = () => {
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+
     
         try {
             const response = await fetch('http://localhost:3000/register', {

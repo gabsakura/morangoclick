@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify';
 
 const HomePage = () => {
     const [morangos, setMorangos] = useState(0);
     const [upgradeLevel, setUpgradeLevel] = useState(1);
+    const [upgrades, setUpgrades] = useState([
+        { id: 1, name: 'Upgrade 1', cost: 50, multiplier: 2, quantity: 0 },
+        { id: 2, name: 'Upgrade 2', cost: 100, multiplier: 5, quantity: 0 },
+        { id: 3, name: 'Upgrade 3', cost: 200, multiplier: 10, quantity: 0 },
+    ]); // Inicializando os upgrades diretamente no estado
+    const [showUpgrades, setShowUpgrades] = useState(false);
     const [username, setUsername] = useState('');
-    const [isLoading, setIsLoading] = useState(true);  // Novo estado para carregamento
-    const [isProcessing, setIsProcessing] = useState(false);  // Novo estado para processamentos
+    const [isLoading, setIsLoading] = useState(true);
+    const [isHarvesting, setIsHarvesting] = useState(false);
+    const [isBuying, setIsBuying] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -17,7 +23,7 @@ const HomePage = () => {
         if (!token) {
             navigate('/login');
         } else {
-            // Fetch the user data from the backend
+            // Fetch user progress and profile from backend
             Promise.all([
                 fetch('http://localhost:3000/progress', {
                     headers: { 'x-access-token': token }
@@ -34,11 +40,14 @@ const HomePage = () => {
                 const profileData = await profileRes.json();
 
                 setMorangos(progressData.strawberries);
-                let upgrades = JSON.parse(progressData.upgrades);
-                let totalMultiplier = upgrades.reduce((sum, upgrade) => sum + upgrade.multiplier, 0);
+                let upgradesData = JSON.parse(progressData.upgrades);
+                setUpgrades(upgradesData);
+
+                // Recalculate total multiplier
+                let totalMultiplier = upgradesData.reduce((sum, upgrade) => sum + upgrade.multiplier * upgrade.quantity, 0);
                 setUpgradeLevel(totalMultiplier || 1);
                 setUsername(profileData.username);
-                setIsLoading(false); // Desabilitar o carregamento após sucesso
+                setIsLoading(false);
             })
             .catch(error => {
                 toast.error(error.message || 'Falha ao carregar dados do usuário.');
@@ -54,7 +63,7 @@ const HomePage = () => {
 
     const handleClick = async () => {
         const token = localStorage.getItem('token');
-        setIsProcessing(true); // Iniciar processamento
+        setIsHarvesting(true);
 
         try {
             const response = await fetch('http://localhost:3000/harvest', {
@@ -68,21 +77,21 @@ const HomePage = () => {
             if (response.ok) {
                 const data = await response.json();
                 setMorangos(data.strawberries); // Atualiza os morangos com a quantidade vinda do backend
+                toast.success('Morangos colhidos com sucesso!');
             } else {
                 const errorData = await response.text();
                 throw new Error(errorData || 'Erro ao colher morango');
             }
         } catch (error) {
-            console.error('Erro:', error.message);
             toast.error(error.message || 'Erro ao colher morango.');
         } finally {
-            setIsProcessing(false); // Finalizar processamento
+            setIsHarvesting(false);
         }
     };
 
-    const handleUpgrade = async () => {
+    const handleUpgrade = async (upgradeId) => {
         const token = localStorage.getItem('token');
-        setIsProcessing(true); // Iniciar processamento
+        setIsBuying(true);
 
         try {
             const response = await fetch('http://localhost:3000/buy', {
@@ -91,28 +100,36 @@ const HomePage = () => {
                     'Content-Type': 'application/json',
                     'x-access-token': token,
                 },
-                body: JSON.stringify({ id: 1 }), // Comprar upgrade com id 1
+                body: JSON.stringify({ id: upgradeId }),
             });
 
             if (!response.ok) {
                 const errorData = await response.text();
-                throw new Error(errorData || 'Erro ao atualizar o upgrade.');
+                throw new Error(errorData || 'Erro ao comprar upgrade.');
             }
 
             const data = await response.json();
             setMorangos(data.strawberries);
-            let upgrades = JSON.parse(data.upgrades);
-            let totalMultiplier = upgrades.reduce((sum, upgrade) => sum + upgrade.multiplier, 0);
+            let upgradesData = JSON.parse(data.upgrades);
+            setUpgrades(upgradesData);
+
+            // Recalculate total multiplier
+            let totalMultiplier = upgradesData.reduce((sum, upgrade) => sum + upgrade.multiplier * upgrade.quantity, 0);
             setUpgradeLevel(totalMultiplier || 1);
+            toast.success('Upgrade comprado com sucesso!');
         } catch (error) {
-            toast.error(error.message || 'Erro ao atualizar o upgrade.');
+            toast.error(error.message || 'Erro ao comprar upgrade.');
         } finally {
-            setIsProcessing(false); // Finalizar processamento
+            setIsBuying(false);
         }
     };
 
+    const toggleShowUpgrades = () => {
+        setShowUpgrades(prevState => !prevState);  // Alterna a visibilidade dos upgrades
+    };
+
     if (isLoading) {
-        return <div className="min-h-screen flex items-center justify-center">Carregando...</div>; // Placeholder enquanto os dados estão sendo carregados
+        return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
     }
 
     return (
@@ -120,31 +137,54 @@ const HomePage = () => {
             <h1 className="text-3xl font-bold mb-4">Bem-vindo, {username}!</h1>
             <div className="mb-4">
                 <p className="text-xl">Morangos: {morangos}</p>
-                <p className="text-xl">Nível do Upgrade: {upgradeLevel}</p>
+                <p className="text-xl">Multiplicador atual: {upgradeLevel}</p>
             </div>
-            <div>
+            <button
+                onClick={handleClick}
+                className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-700"
+                disabled={isHarvesting}
+            >
+                {isHarvesting ? 'Colhendo...' : 'Ganhar Morangos 🍓'}
+            </button>
+
+            <div className="mt-8 w-full max-w-md">
                 <button
-                    onClick={handleClick}
-                    className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-700"
-                    disabled={isProcessing} // Desabilitar botão enquanto processa
+                    onClick={toggleShowUpgrades}
+                    className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700"
                 >
-                    Ganhar Morangos 🍓
+                    {showUpgrades ? 'Esconder Upgrades Disponíveis' : 'Mostrar Upgrades Disponíveis'}
                 </button>
-                <button
-                    onClick={handleUpgrade}
-                    className="ml-4 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700"
-                    disabled={isProcessing} // Desabilitar botão enquanto processa
-                >
-                    Comprar Upgrade 🔼
-                </button>
+
+                {showUpgrades && (
+                    <div className="mt-4">
+                        <h2 className="text-2xl font-bold mb-4">Upgrades Disponíveis</h2>
+                        {upgrades.map((upgrade) => (
+                            <div key={upgrade.id} className="mb-4 p-4 bg-white rounded shadow">
+                                <p className="text-lg font-semibold">{upgrade.name}</p>
+                                <p>Custo: {upgrade.cost} morangos</p>
+                                <p>Quantidade: {upgrade.quantity}</p>
+                                <p>Multiplicador: x{upgrade.multiplier}</p>
+                                <button
+                                    onClick={() => handleUpgrade(upgrade.id)}
+                                    className={`mt-2 px-4 py-2 font-semibold rounded-lg shadow-md ${
+                                        morangos < upgrade.cost ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-700 text-white'
+                                    }`}
+                                    disabled={isBuying || morangos < upgrade.cost}
+                                >
+                                    {isBuying ? 'Processando...' : `Comprar ${upgrade.name}`}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
+
             <button
                 onClick={handleLogout}
                 className="mt-8 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-700"
             >
                 Logout
             </button>
-            <ToastContainer />
         </div>
     );
 };
