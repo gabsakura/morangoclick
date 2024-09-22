@@ -11,7 +11,7 @@ const HomePage = () => {
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-
+    
         if (!token) {
             navigate('/login');
         } else {
@@ -30,7 +30,7 @@ const HomePage = () => {
                     }
                     const progressData = await progressRes.json();
                     const profileData = await profileRes.json();
-
+    
                     setMorangos(progressData.strawberries);
                     setUsername(profileData.username);
                     setIsLoading(false);
@@ -41,6 +41,7 @@ const HomePage = () => {
                 });
         }
     }, [navigate]);
+    
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -53,20 +54,22 @@ const HomePage = () => {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
-            <h1 className="text-3xl font-bold mb-4">Bem-vindo, {username}!</h1>
-
-
-            {/* Componente de Upgrades */}
-            <Upgrades token={localStorage.getItem('token')} />
-
-            <button
-                onClick={handleLogout}
-                className="mt-8 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-700"
-            >
-                Logout
-            </button>
+          <h1 className="text-3xl font-bold mb-4">
+            {username ? `Bem-vindo, ${username}!` : 'Carregando dados...'}
+          </h1>
+      
+          {/* Componente de Upgrades */}
+          <Upgrades token={localStorage.getItem('token')} />
+      
+          <button
+            onClick={handleLogout}
+            className="mt-8 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-700"
+          >
+            Logout
+          </button>
         </div>
-    );
+      );
+      
 };
 
 export default HomePage;
